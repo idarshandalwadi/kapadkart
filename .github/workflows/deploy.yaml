@@ -14,13 +14,21 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          script_stop: true
           script: |
-            set -euo pipefail
-            cd /var/www/kapadkart
+            set -eu
+            pm2 jlist > /tmp/kapadkart-pm2.json
+            APP_DIR=$(node -p 'JSON.parse(require("fs").readFileSync("/tmp/kapadkart-pm2.json","utf8")).find(a=>a.name==="kapadkart-api").pm2_env.pm_cwd')
+            echo "Deploying in $APP_DIR"
+            cd "$APP_DIR"
+            if [ ! -d .git ]; then
+              echo "ERROR: $APP_DIR is not a git clone."
+              echo "On the server, from that directory, run:"
+              echo "  git init && git remote add origin git@github.com:YOUR_USER/kapadkart.git && git fetch origin && git checkout -f main"
+              exit 1
+            fi
             git fetch origin main
             git checkout main
-            git pull --ff-only origin main
+            git reset --hard origin/main
             npm ci
             npx prisma generate
             npm run db:migrate
