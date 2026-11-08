@@ -10,7 +10,7 @@ The shop app (`kapadkart-fe`) and the admin panel (`kapadkart-admin`) are separa
 - npm 10 or newer
 - PostgreSQL 15 or newer
 
-The schema creates the `uuid-ossp` extension and an `app` schema. The database user needs permission to do both.
+The schema creates an `app` schema. The database user needs permission to create that schema.
 
 ## Setup
 

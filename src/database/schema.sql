@@ -1,9 +1,9 @@
 -- ============================================================================
 -- KAPADKART DATABASE SCHEMA
 -- Fresh create script for schema "app". Run against an empty database.
+-- IDs use gen_random_uuid(), which is built into PostgreSQL 13+.
 -- ============================================================================
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE SCHEMA IF NOT EXISTS app;
 
 -- ----------------------------------------------------------------------------
