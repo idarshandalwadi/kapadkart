@@ -51,7 +51,7 @@ describe('HttpOnly Cookie Authentication & Session Lifecycle', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: 'khodal@reantario.com',
+        email: 'khodal@kapadkart.com',
         password: 'Khodal@123'
       })
     });
@@ -95,7 +95,7 @@ describe('HttpOnly Cookie Authentication & Session Lifecycle', () => {
     const meBody = await meRes.json();
     assert.equal(meBody.status, 'success');
     assert.equal(meBody.role, 'tenant_user');
-    assert.equal(meBody.user.email, 'khodal@reantario.com');
+    assert.equal(meBody.user.email, 'khodal@kapadkart.com');
   });
 
   it('POST /api/v1/auth/logout clears cookie and revokes session server-side', async () => {
@@ -104,7 +104,7 @@ describe('HttpOnly Cookie Authentication & Session Lifecycle', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: 'khodal@reantario.com',
+        email: 'khodal@kapadkart.com',
         password: 'Khodal@123'
       })
     });

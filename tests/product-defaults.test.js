@@ -25,7 +25,7 @@ describe('Product Defaults, Brand Optionality, and Tenant Business Type Enforcem
     const loginRes = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'khodal@reantario.com', password: 'Khodal@123' })
+      body: JSON.stringify({ email: 'khodal@kapadkart.com', password: 'Khodal@123' })
     });
     const loginData = await loginRes.json();
     tenantToken = loginData.token;
@@ -146,7 +146,7 @@ describe('Product Defaults, Brand Optionality, and Tenant Business Type Enforcem
     const loginRes = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'khodal@reantario.com', password: 'Khodal@123' })
+      body: JSON.stringify({ email: 'khodal@kapadkart.com', password: 'Khodal@123' })
     });
     const { token: rentalToken } = await loginRes.json();
 
@@ -192,7 +192,7 @@ describe('Product Defaults, Brand Optionality, and Tenant Business Type Enforcem
     const loginRes = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'khodal@reantario.com', password: 'Khodal@123' })
+      body: JSON.stringify({ email: 'khodal@kapadkart.com', password: 'Khodal@123' })
     });
     const { token: salesToken } = await loginRes.json();
 

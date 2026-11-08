@@ -27,7 +27,7 @@ describe('Catalog Management: Brands & Categories', () => {
     const res = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'khodal@reantario.com', password: 'Khodal@123' })
+      body: JSON.stringify({ email: 'khodal@kapadkart.com', password: 'Khodal@123' })
     });
     const body = await res.json();
     assert.equal(res.status, 200);

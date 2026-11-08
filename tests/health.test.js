@@ -35,7 +35,7 @@ describe('API Health and Core Endpoints', () => {
 
     const body = await res.json();
     assert.ok(body.status === 'ok' || body.status === 'degraded');
-    assert.equal(body.service, 'reantario-api');
+    assert.equal(body.service, 'kapadkart-api');
     assert.equal(typeof body.uptime, 'number');
     assert.ok(body.timestamp);
     assert.ok(Date.parse(body.timestamp));
@@ -50,7 +50,7 @@ describe('API Health and Core Endpoints', () => {
     assert.ok([200, 503].includes(res.status));
 
     const body = await res.json();
-    assert.equal(body.service, 'reantario-api');
+    assert.equal(body.service, 'kapadkart-api');
     assert.ok(body.config);
     assert.equal(body.config.source, 'local');
     assert.ok(body.probe);
@@ -61,7 +61,7 @@ describe('API Health and Core Endpoints', () => {
     assert.equal(res.status, 200);
 
     const body = await res.json();
-    assert.equal(body.service, 'reantario-api');
+    assert.equal(body.service, 'kapadkart-api');
     assert.equal(body.version, '1.0.0');
     assert.ok(body.message);
   });
@@ -92,13 +92,13 @@ describe('API Health and Core Endpoints', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: 'test@reantario.com',
-        message: 'Hello Reantario API'
+        email: 'test@kapadkart.com',
+        message: 'Hello KapadKart API'
       })
     });
     assert.equal(validRes.status, 200);
     const validBody = await validRes.json();
     assert.equal(validBody.status, 'success');
-    assert.equal(validBody.data.email, 'test@reantario.com');
+    assert.equal(validBody.data.email, 'test@kapadkart.com');
   });
 });

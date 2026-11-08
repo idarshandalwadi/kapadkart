@@ -29,7 +29,7 @@ describe('Tenant Activity Logs and Audit Tracking', () => {
         'Content-Type': 'application/json',
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       },
-      body: JSON.stringify({ email: 'khodal@reantario.com', password: 'Khodal@123' })
+      body: JSON.stringify({ email: 'khodal@kapadkart.com', password: 'Khodal@123' })
     });
     const loginData = await loginRes.json();
     tenantToken = loginData.token;
@@ -61,7 +61,7 @@ describe('Tenant Activity Logs and Audit Tracking', () => {
         'Content-Type': 'application/json',
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       },
-      body: JSON.stringify({ email: 'khodal@reantario.com', password: 'Khodal@123' })
+      body: JSON.stringify({ email: 'khodal@kapadkart.com', password: 'Khodal@123' })
     });
     assert.equal(loginRes.status, 200);
 
@@ -75,10 +75,10 @@ describe('Tenant Activity Logs and Audit Tracking', () => {
     assert.ok(Array.isArray(body.data));
     assert.ok(body.data.length > 0);
 
-    const loginLog = body.data.find((l) => l.action === 'login' && l.user_email === 'khodal@reantario.com');
+    const loginLog = body.data.find((l) => l.action === 'login' && l.user_email === 'khodal@kapadkart.com');
     assert.ok(loginLog);
     assert.equal(loginLog.entity_type, 'auth');
-    assert.equal(loginLog.user_email, 'khodal@reantario.com');
+    assert.equal(loginLog.user_email, 'khodal@kapadkart.com');
     assert.ok(typeof loginLog.browser_name === 'string');
     assert.ok(loginLog.created_at);
   });

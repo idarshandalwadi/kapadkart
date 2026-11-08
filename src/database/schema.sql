@@ -1,6 +1,6 @@
 -- ============================================================================
--- KAPADKART SAAS DATABASE SCHEMA (CONSOLIDATED INITIAL MIGRATION)
--- Target Namespace: app
+-- KAPADKART DATABASE SCHEMA
+-- Fresh create script for schema "app". Run against an empty database.
 -- ============================================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -30,8 +30,6 @@ CREATE TABLE IF NOT EXISTS app.platform_admins (
   updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-ALTER TABLE app.platform_admins ADD COLUMN IF NOT EXISTS auth_key VARCHAR(64) DEFAULT ('adm_' || replace(gen_random_uuid()::text, '-', ''));
-
 CREATE INDEX IF NOT EXISTS idx_platform_admins_email ON app.platform_admins (email);
 CREATE INDEX IF NOT EXISTS idx_platform_admins_username ON app.platform_admins (username);
 CREATE INDEX IF NOT EXISTS idx_platform_admins_auth_key ON app.platform_admins (auth_key);
@@ -55,15 +53,6 @@ CREATE TABLE IF NOT EXISTS app.tenants (
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
-ALTER TABLE app.tenants ADD COLUMN IF NOT EXISTS original_slug VARCHAR(100);
-ALTER TABLE app.tenants ADD COLUMN IF NOT EXISTS auth_key VARCHAR(64) DEFAULT ('tnt_' || replace(gen_random_uuid()::text, '-', ''));
-ALTER TABLE app.tenants ADD COLUMN IF NOT EXISTS business_type app.business_type NOT NULL DEFAULT 'SALES_AND_RENTAL';
-ALTER TABLE app.tenants ADD COLUMN IF NOT EXISTS max_products INTEGER DEFAULT NULL;
-ALTER TABLE app.tenants ADD COLUMN IF NOT EXISTS max_bookings INTEGER DEFAULT NULL;
-ALTER TABLE app.tenants ADD COLUMN IF NOT EXISTS max_sales INTEGER DEFAULT NULL;
-ALTER TABLE app.tenants ADD COLUMN IF NOT EXISTS created_by VARCHAR(255);
-ALTER TABLE app.tenants ADD COLUMN IF NOT EXISTS created_by_admin_id UUID REFERENCES app.platform_admins(id) ON DELETE SET NULL;
 
 CREATE INDEX IF NOT EXISTS idx_tenants_status ON app.tenants (status);
 CREATE INDEX IF NOT EXISTS idx_tenants_auth_key ON app.tenants (auth_key);
@@ -114,6 +103,9 @@ CREATE TABLE IF NOT EXISTS app.products (
   daily_rent DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
   sale_price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
   total_quantity INT NOT NULL DEFAULT 0,
+  damaged_quantity INT NOT NULL DEFAULT 0,
+  sold_quantity INT NOT NULL DEFAULT 0,
+  rented_quantity INT NOT NULL DEFAULT 0,
   availability_type VARCHAR(20) NOT NULL DEFAULT 'rent',
   description TEXT,
   status VARCHAR(20) NOT NULL DEFAULT 'Available',
@@ -122,12 +114,6 @@ CREATE TABLE IF NOT EXISTS app.products (
   CONSTRAINT products_tenant_id_product_code_key UNIQUE (tenant_id, product_code),
   CONSTRAINT chk_products_qty_nonneg CHECK (total_quantity >= 0)
 );
-
-ALTER TABLE app.products ADD COLUMN IF NOT EXISTS image2 TEXT;
-ALTER TABLE app.products ADD COLUMN IF NOT EXISTS damaged_quantity INT DEFAULT 0;
-ALTER TABLE app.products ADD COLUMN IF NOT EXISTS sold_quantity INT DEFAULT 0;
-ALTER TABLE app.products ADD COLUMN IF NOT EXISTS rented_quantity INT DEFAULT 0;
-ALTER TABLE app.products ADD COLUMN IF NOT EXISTS description TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_products_tenant_id ON app.products (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_products_status ON app.products (status);
@@ -193,13 +179,6 @@ CREATE TABLE IF NOT EXISTS app.bookings (
   CONSTRAINT chk_bookings_due_nonneg CHECK (due_amount >= 0)
 );
 
-ALTER TABLE app.bookings ADD COLUMN IF NOT EXISTS extra_phone_number VARCHAR(20);
-ALTER TABLE app.bookings ADD COLUMN IF NOT EXISTS tax_rate DECIMAL(5, 2) NOT NULL DEFAULT 0.00;
-ALTER TABLE app.bookings ADD COLUMN IF NOT EXISTS tax_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00;
-ALTER TABLE app.bookings ADD COLUMN IF NOT EXISTS accessories_price DECIMAL(10, 2) NOT NULL DEFAULT 0.00;
-ALTER TABLE app.bookings ADD COLUMN IF NOT EXISTS security_deposit DECIMAL(10, 2) NOT NULL DEFAULT 0.00;
-ALTER TABLE app.bookings ADD COLUMN IF NOT EXISTS deposit_paid BOOLEAN NOT NULL DEFAULT false;
-
 CREATE INDEX IF NOT EXISTS idx_bookings_tenant_id ON app.bookings (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_status ON app.bookings (status);
 CREATE INDEX IF NOT EXISTS idx_bookings_pickup_date ON app.bookings (pickup_date);
@@ -230,21 +209,6 @@ CREATE TABLE IF NOT EXISTS app.booking_items (
   CONSTRAINT chk_bi_qty_positive CHECK (quantity > 0),
   CONSTRAINT chk_bi_block_dates CHECK (block_end >= block_start)
 );
-
-ALTER TABLE app.booking_items ADD COLUMN IF NOT EXISTS accessories JSONB DEFAULT '{}'::jsonb;
-ALTER TABLE app.booking_items ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
-ALTER TABLE app.booking_items ADD COLUMN IF NOT EXISTS block_start DATE NOT NULL DEFAULT CURRENT_DATE;
-ALTER TABLE app.booking_items ADD COLUMN IF NOT EXISTS block_end DATE NOT NULL DEFAULT CURRENT_DATE;
-
-UPDATE app.booking_items AS item
-SET
-  block_start = booking.pickup_date::date,
-  block_end = booking.return_date::date
-FROM app.bookings AS booking
-WHERE item.booking_id = booking.id
-  AND item.block_start = CURRENT_DATE
-  AND item.block_end = CURRENT_DATE
-  AND booking.pickup_date::date <> CURRENT_DATE;
 
 CREATE INDEX IF NOT EXISTS idx_bi_tenant_booking ON app.booking_items (tenant_id, booking_id);
 CREATE INDEX IF NOT EXISTS idx_bi_tenant_product ON app.booking_items (tenant_id, product_id);
@@ -345,11 +309,6 @@ CREATE TABLE IF NOT EXISTS app.payments (
   CONSTRAINT idx_payments_tenant_idempotency UNIQUE (tenant_id, idempotency_key)
 );
 
-ALTER TABLE app.payments ADD COLUMN IF NOT EXISTS allocation VARCHAR(30) NOT NULL DEFAULT 'RENTAL';
-ALTER TABLE app.payments ADD COLUMN IF NOT EXISTS direction VARCHAR(20) NOT NULL DEFAULT 'INFLOW';
-ALTER TABLE app.payments ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(100);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_tenant_idempotency ON app.payments (tenant_id, idempotency_key);
-
 CREATE INDEX IF NOT EXISTS idx_payments_tenant_booking ON app.payments (tenant_id, booking_id);
 CREATE INDEX IF NOT EXISTS idx_payments_tenant_sale ON app.payments (tenant_id, sale_id);
 CREATE INDEX IF NOT EXISTS idx_payments_tenant_paid_at ON app.payments (tenant_id, paid_at);
@@ -406,9 +365,6 @@ CREATE TABLE IF NOT EXISTS app.users (
   updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT users_tenant_id_email_key UNIQUE (tenant_id, email)
 );
-
-ALTER TABLE app.users ADD COLUMN IF NOT EXISTS auth_key VARCHAR(64) DEFAULT ('usr_' || replace(gen_random_uuid()::text, '-', ''));
-ALTER TABLE app.users ADD COLUMN IF NOT EXISTS original_email VARCHAR(255);
 
 CREATE INDEX IF NOT EXISTS idx_users_tenant_id ON app.users (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_users_email ON app.users (email);
@@ -542,32 +498,3 @@ CREATE TABLE IF NOT EXISTS app.bill_share_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_bill_share_tokens_token ON app.bill_share_tokens (token);
 CREATE INDEX IF NOT EXISTS idx_bill_share_tokens_expires ON app.bill_share_tokens (expires_at);
-
--- Older local databases were created without the uuid defaults and auth keys Prisma inserts.
-ALTER TABLE app.platform_admins ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE app.tenants ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE app.users ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE app.brands ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE app.categories ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE app.products ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE app.product_inventory_logs ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE app.bookings ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE app.booking_items ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE app.booking_returns ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE app.sales ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE app.sale_items ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE app.payments ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE app.settings ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE app.activity_logs ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE app.password_reset_otps ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE app.email_logs ALTER COLUMN id SET DEFAULT gen_random_uuid();
-
-UPDATE app.platform_admins SET auth_key = ('adm_' || replace(gen_random_uuid()::text, '-', '')) WHERE auth_key IS NULL;
-UPDATE app.tenants SET auth_key = ('tnt_' || replace(gen_random_uuid()::text, '-', '')) WHERE auth_key IS NULL;
-UPDATE app.users SET auth_key = ('usr_' || replace(gen_random_uuid()::text, '-', '')) WHERE auth_key IS NULL;
-ALTER TABLE app.platform_admins ALTER COLUMN auth_key SET NOT NULL;
-ALTER TABLE app.tenants ALTER COLUMN auth_key SET NOT NULL;
-ALTER TABLE app.users ALTER COLUMN auth_key SET NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS platform_admins_auth_key_key ON app.platform_admins (auth_key);
-CREATE UNIQUE INDEX IF NOT EXISTS tenants_auth_key_key ON app.tenants (auth_key);
-CREATE UNIQUE INDEX IF NOT EXISTS users_auth_key_key ON app.users (auth_key);

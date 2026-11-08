@@ -34,13 +34,13 @@ export async function ensureTestTenant() {
       where: {
         tenantId_email: {
           tenantId: tenant.id,
-          email: 'khodal@reantario.com'
+          email: 'khodal@kapadkart.com'
         }
       },
       update: { passwordHash: hash },
       create: {
         tenantId: tenant.id,
-        email: 'khodal@reantario.com',
+        email: 'khodal@kapadkart.com',
         passwordHash: hash,
         fullName: 'mahakali'
       }

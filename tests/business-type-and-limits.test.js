@@ -27,7 +27,7 @@ describe('Shop Business Type and Configurable Usage Limits Verification', () => 
     const adminLoginRes = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'admin@reantario.com', password: 'Admin123' })
+      body: JSON.stringify({ email: 'admin@kapadkart.com', password: 'Admin123' })
     });
     const adminData = await adminLoginRes.json();
     adminToken = adminData.token;

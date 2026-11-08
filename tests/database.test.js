@@ -51,13 +51,13 @@ describe('Database Schema & Seed Verification', () => {
   it('verifies seeded PlatformAdmin credentials and password hash', async () => {
     const res = await query(
       `SELECT username, email, password_hash, full_name FROM app.platform_admins WHERE username = $1`,
-      ['reantario']
+      ['kapadkart']
     );
 
     assert.equal(res.rows.length, 1);
     const admin = res.rows[0];
-    assert.equal(admin.username, 'reantario');
-    assert.equal(admin.email, 'admin@reantario.com');
+    assert.equal(admin.username, 'kapadkart');
+    assert.equal(admin.email, 'admin@kapadkart.com');
 
     const isValidPassword = await bcrypt.compare('Admin123', admin.password_hash);
     assert.equal(isValidPassword, true, 'Admin123 password should match the bcrypt hash');

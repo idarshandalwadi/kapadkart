@@ -29,7 +29,7 @@ describe('Comprehensive Authentication & Authorization Security Tests', () => {
     const adminLoginRes = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'admin@reantario.com', password: 'Admin123' })
+      body: JSON.stringify({ email: 'admin@kapadkart.com', password: 'Admin123' })
     });
     const adminLoginData = await adminLoginRes.json();
     adminToken = adminLoginData.token;
@@ -38,7 +38,7 @@ describe('Comprehensive Authentication & Authorization Security Tests', () => {
     const tenantLoginRes = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'khodal@reantario.com', password: 'Khodal@123' })
+      body: JSON.stringify({ email: 'khodal@kapadkart.com', password: 'Khodal@123' })
     });
     const tenantLoginData = await tenantLoginRes.json();
     tenantToken = tenantLoginData.token;
@@ -158,12 +158,12 @@ describe('Comprehensive Authentication & Authorization Security Tests', () => {
   // 7. ACCOUNT ENUMERATION DEFENSE & GENERIC RESPONSE
   it('Returns identical generic response for registered and unregistered accounts in forgot-password', async () => {
     // Clear prior OTPs so this is a fresh request outside cooldown
-    await query(`DELETE FROM app.password_reset_otps WHERE email = 'khodal@reantario.com';`);
+    await query(`DELETE FROM app.password_reset_otps WHERE email = 'khodal@kapadkart.com';`);
 
     const existingRes = await fetch(`${baseUrl}/api/v1/auth/forgot-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'khodal@reantario.com' })
+      body: JSON.stringify({ email: 'khodal@kapadkart.com' })
     });
     const existingBody = await existingRes.json();
     assert.equal(existingRes.status, 200);
@@ -192,7 +192,7 @@ describe('Comprehensive Authentication & Authorization Security Tests', () => {
     const secondReq = await fetch(`${baseUrl}/api/v1/auth/forgot-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'khodal@reantario.com' })
+      body: JSON.stringify({ email: 'khodal@kapadkart.com' })
     });
     const body = await secondReq.json();
     assert.equal(secondReq.status, 429);
@@ -202,24 +202,24 @@ describe('Comprehensive Authentication & Authorization Security Tests', () => {
 
   it('Prevents concurrent OTP requests from bypassing the 2-minute cooldown', async () => {
     // Clean prior OTPs to test fresh parallel burst
-    await query(`DELETE FROM app.password_reset_otps WHERE email = 'khodal@reantario.com';`);
+    await query(`DELETE FROM app.password_reset_otps WHERE email = 'khodal@kapadkart.com';`);
 
     // Fire 3 simultaneous requests
     const results = await Promise.all([
       fetch(`${baseUrl}/api/v1/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'khodal@reantario.com' })
+        body: JSON.stringify({ email: 'khodal@kapadkart.com' })
       }),
       fetch(`${baseUrl}/api/v1/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'khodal@reantario.com' })
+        body: JSON.stringify({ email: 'khodal@kapadkart.com' })
       }),
       fetch(`${baseUrl}/api/v1/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'khodal@reantario.com' })
+        body: JSON.stringify({ email: 'khodal@kapadkart.com' })
       })
     ]);
 
@@ -416,9 +416,9 @@ describe('Comprehensive Authentication & Authorization Security Tests', () => {
     });
     assert.equal(createRes.status, 201);
 
-    // Verify app.tenants has created_by set to admin@reantario.com
+    // Verify app.tenants has created_by set to admin@kapadkart.com
     const tenantCheck = await query(`SELECT created_by, created_by_admin_id FROM app.tenants WHERE slug = $1;`, [testSlug]);
-    assert.equal(tenantCheck.rows[0].created_by, 'admin@reantario.com');
+    assert.equal(tenantCheck.rows[0].created_by, 'admin@kapadkart.com');
     assert.ok(tenantCheck.rows[0].created_by_admin_id);
 
     // Verify GET /api/v1/admin/tenants returns created_by and owner object with email & full_name
@@ -430,7 +430,7 @@ describe('Comprehensive Authentication & Authorization Security Tests', () => {
 
     const foundShop = listBody.data.find((s) => s.slug === testSlug);
     assert.ok(foundShop, 'Shop should be present in listing');
-    assert.equal(foundShop.created_by, 'admin@reantario.com');
+    assert.equal(foundShop.created_by, 'admin@kapadkart.com');
     assert.ok(foundShop.owner, 'Owner object must be present in listing response');
     assert.equal(foundShop.owner.email, ownerEmail);
     assert.equal(foundShop.owner.full_name, 'Creator Test Owner');

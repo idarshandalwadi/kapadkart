@@ -36,7 +36,7 @@ describe('Multi-Portal Authentication & APIs', () => {
     const res = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'admin@reantario.com', password: 'Admin123' })
+      body: JSON.stringify({ email: 'admin@kapadkart.com', password: 'Admin123' })
     });
 
     const body = await res.json();
@@ -51,7 +51,7 @@ describe('Multi-Portal Authentication & APIs', () => {
     const res = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'khodal@reantario.com', password: 'Khodal@123' })
+      body: JSON.stringify({ email: 'khodal@kapadkart.com', password: 'Khodal@123' })
     });
 
     const body = await res.json();
@@ -67,7 +67,7 @@ describe('Multi-Portal Authentication & APIs', () => {
     const res = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'admin@reantario.com', password: 'WrongPassword' })
+      body: JSON.stringify({ email: 'admin@kapadkart.com', password: 'WrongPassword' })
     });
 
     const body = await res.json();
@@ -124,7 +124,7 @@ describe('Multi-Portal Authentication & APIs', () => {
     const adminMeBody = await adminMeRes.json();
     assert.equal(adminMeRes.status, 200);
     assert.equal(adminMeBody.role, 'platform_admin');
-    assert.equal(adminMeBody.user.email, 'admin@reantario.com');
+    assert.equal(adminMeBody.user.email, 'admin@kapadkart.com');
 
     const tenantMeRes = await fetch(`${baseUrl}/api/v1/auth/me`, {
       headers: { Authorization: `Bearer ${tenantToken}` }
