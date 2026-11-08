@@ -1,0 +1,2 @@
+# This directory is reserved for future domain business modules (e.g. auth, billing, tenants).
+# Keep domain logic, models, and module controllers encapsulated here.

@@ -1,0 +1,13 @@
+# Cloudflare R2 bucket for KapadKart images. This file has no Worker script.
+#
+#   npx wrangler login
+#   npm run r2:create
+#   npm run r2:cors
+
+name = "kapadkart-images"
+compatibility_date = "2026-11-08"
+
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "kapadkart-images"
+preview_bucket_name = "kapadkart-images"
