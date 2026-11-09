@@ -19,6 +19,10 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
   FRONTEND_ORIGIN: z.string().default('http://localhost:5173'),
+  // Public shop app origin embedded in email links. No trailing slash.
+  // Leave unset so local API requests use http://localhost:5173 and live
+  // requests use https://kapadkart.pages.dev.
+  SHOP_APP_URL: z.string().optional(),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 
   // Local PostgreSQL. The API connects with these values.

@@ -4,6 +4,7 @@ import { LocalStorageProvider } from './localStorage.js';
 import { S3StorageProvider } from './s3Storage.js';
 import { R2StorageProvider } from './r2Storage.js';
 import { imageCompressionService } from '../image/imageCompressionService.js';
+import { listAssetRefs, storageKeyFromReference } from './storageKey.js';
 
 export const MIME_MAP = {
   'image/jpeg': '.jpg',
@@ -88,61 +89,19 @@ class StorageService {
     };
   }
 
+  storageBucket() {
+    return this.provider?.bucket || env.R2_BUCKET_NAME || '';
+  }
+
   /**
    * Safely extract the internal storage key from a full URL, relative path, or direct key.
    * Protects system static assets, default placeholders, and inline base64/blobs.
+   * Path-style R2 URLs include the bucket name, which is not part of the object key.
    * @param {string} urlOrKey
    * @returns {string|null} storage key or null if not a manageable/deletable file
    */
   extractKey(urlOrKey) {
-    if (!urlOrKey || typeof urlOrKey !== 'string') return null;
-    const str = urlOrKey.trim();
-    if (!str) return null;
-
-    // Guard: Never delete inline base64 or blob data
-    if (/^(data:|blob:)/i.test(str)) return null;
-
-    // Guard: Never delete system default assets, placeholders, or root branding
-    const protectedAssets = [
-      'product-placeholder.webp',
-      'kapad-kart-logo.svg',
-      'kk-favicon.svg',
-      'favicon.svg',
-      'favicon.ico',
-      'manifest.webmanifest'
-    ];
-    for (const asset of protectedAssets) {
-      if (str.includes(asset)) return null;
-    }
-
-    // Pattern 1: URL or path containing '/uploads/' (Local storage provider)
-    const uploadsMatch = str.match(/\/uploads\/(.+)$/);
-    if (uploadsMatch) {
-      return uploadsMatch[1].replace(/^\/+/, '');
-    }
-
-    // Pattern 2: Full HTTP/HTTPS URL (AWS S3, Cloudflare R2, CDN)
-    if (/^https?:\/\//i.test(str)) {
-      try {
-        const parsed = new URL(str);
-        const cleanPath = parsed.pathname.replace(/^\/+/, '');
-        // Match known storage folders
-        if (/^(products|logos|branding|images|general)\//i.test(cleanPath)) {
-          return cleanPath;
-        }
-        return cleanPath || null;
-      } catch {
-        return null;
-      }
-    }
-
-    // Pattern 3: Relative path (e.g. products/usr_123/uuid.webp or /products/...)
-    const cleanRelative = str.replace(/^\/?(uploads\/)?/, '');
-    if (cleanRelative && /^(products|logos|branding|images|general)\//i.test(cleanRelative)) {
-      return cleanRelative;
-    }
-
-    return cleanRelative || null;
+    return storageKeyFromReference(urlOrKey, { bucket: this.storageBucket() });
   }
 
   /**
@@ -155,6 +114,38 @@ class StorageService {
     const key = this.extractKey(keyOrUrl);
     if (!key) return false;
     return await this.provider.deleteFile(key);
+  }
+
+  /**
+   * Delete stored files that were removed from a logo or product image field.
+   * Accepts a URL, a JSON array of URLs, or a list of those values.
+   * @param {unknown} previousValue
+   * @param {unknown} nextValue
+   * @returns {Promise<boolean>}
+   */
+  async deleteRemoved(previousValue, nextValue) {
+    const bucket = this.storageBucket();
+    const nextKeys = new Set(
+      listAssetRefs(nextValue)
+        .map((ref) => storageKeyFromReference(ref, { bucket }))
+        .filter(Boolean)
+    );
+    const removedKeys = [...new Set(
+      listAssetRefs(previousValue)
+        .map((ref) => storageKeyFromReference(ref, { bucket }))
+        .filter((key) => key && !nextKeys.has(key))
+    )];
+
+    let deleted = false;
+    for (const key of removedKeys) {
+      try {
+        const ok = await this.provider.deleteFile(key);
+        deleted = deleted || Boolean(ok);
+      } catch (err) {
+        console.warn(`[StorageService] Failed to delete removed image ${key}:`, err.message);
+      }
+    }
+    return deleted;
   }
 
   /**

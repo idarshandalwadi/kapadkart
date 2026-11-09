@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../../config/prisma.js";
 import { formatActivityLog } from "../../services/activity/activityService.js";
-import { formatRentalHistoryBooking } from "./tenant.helpers.js";
+import { formatRentalHistoryBooking, queryReturnsSchedule } from "./tenant.helpers.js";
 
 const router = Router();
 
@@ -226,26 +226,12 @@ router.get('/sales-reports', async (req, res, next) => {
 
 router.get('/returns-schedule', async (req, res, next) => {
   try {
-    const tenantId = req.tenantId;
-    const bookings = await prisma.booking.findMany({
-      where: {
-        tenantId,
-        status: { in: ['booked', 'dispatched', 'sent', 'partially_returned'] }
-      },
-      include: {
-        bookingItems: {
-          include: {
-            product: true,
-            returns: true
-          }
-        }
-      },
-      orderBy: { returnDate: 'asc' }
-    });
+    const result = await queryReturnsSchedule(prisma, req.tenantId, req.query);
     res.status(200).json({
       status: 'success',
-      data: bookings.map(formatBooking),
-      total: bookings.length
+      data: result.data,
+      total: result.total,
+      tab: result.tab
     });
   } catch (error) {
     next(error);

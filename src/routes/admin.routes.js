@@ -6,6 +6,7 @@ import { storageService } from '../services/storage/index.js';
 import { requireAdmin } from '../middleware/authMiddleware.js';
 import {
   sendEmail,
+  emailLinksForRequest,
   buildWelcomeShopHtml,
   buildAccountSuspendedHtml,
   buildAccountUpdatedHtml
@@ -772,7 +773,8 @@ const handleCreateTenant = async (req, res, next) => {
         shopName: name,
         slug: cleanSlug,
         ownerEmail: normalizedEmail,
-        temporaryPassword: rawPassword
+        temporaryPassword: rawPassword,
+        loginUrl: emailLinksForRequest(req).loginUrl
       });
 
       await sendEmail({
@@ -1061,11 +1063,9 @@ const handleUpdateTenant = async (req, res, next) => {
       return tenant;
     });
 
-    // Automatically delete replaced tenant logo from storage if updated
+    // Delete the previous logo from storage when it is cleared or replaced.
     if (logo_url !== undefined && logo_url !== (existingTenant.settings?.logoUrl || '') && existingTenant.settings?.logoUrl) {
-      storageService.delete(existingTenant.settings.logoUrl).catch((err) => {
-        console.warn(`[Admin] Failed to delete replaced tenant logo: ${existingTenant.settings.logoUrl}`, err.message);
-      });
+      await storageService.deleteRemoved(existingTenant.settings.logoUrl, logo_url);
     }
 
     // 5. Check if status transitioned to 'suspended'
@@ -1075,7 +1075,8 @@ const handleUpdateTenant = async (req, res, next) => {
         shopName: updatedTenant.name,
         ownerName: existingOwner.fullName,
         reason: reason || 'Administrative Review',
-        customReason: customReason || ''
+        customReason: customReason || '',
+        supportUrl: emailLinksForRequest(req).supportUrl
       });
       await sendEmail({
         tenantId: updatedTenant.id,
@@ -1314,7 +1315,8 @@ const handlePatchStatus = async (req, res, next) => {
         shopName: tenant.name,
         ownerName: owner.fullName,
         reason: reason || 'Administrative Review',
-        customReason: customReason || ''
+        customReason: customReason || '',
+        supportUrl: emailLinksForRequest(req).supportUrl
       });
 
       await sendEmail({
@@ -1488,9 +1490,7 @@ const handleTenantUploadBranding = async (req, res, next) => {
     });
 
     if (prevSetting?.logoUrl && prevSetting.logoUrl !== result.url) {
-      storageService.delete(prevSetting.logoUrl).catch((err) => {
-        console.warn(`[Admin] Failed to delete replaced tenant logo: ${prevSetting.logoUrl}`, err.message);
-      });
+      await storageService.deleteRemoved(prevSetting.logoUrl, result.url);
     }
 
     res.status(200).json({

@@ -6,7 +6,8 @@ import {
   getProductStockInclude,
   formatProduct,
   formatBooking,
-  generateNextTenantBillNo
+  generateNextTenantBillNo,
+  queryReturnsSchedule
 } from "./tenant.helpers.js";
 
 const router = Router();
@@ -656,12 +657,35 @@ router.get('/bookings/calendar', async (req, res, next) => {
 });
 
 /**
+ * GET /api/v1/tenant/bookings/returns-schedule
+ * Dashboard tabs: overdue, today, tomorrow, upcoming.
+ * Registered before /bookings/:id so "returns-schedule" is not queried as a UUID.
+ */
+router.get('/bookings/returns-schedule', async (req, res, next) => {
+  try {
+    const result = await queryReturnsSchedule(prisma, req.tenantId, req.query);
+    res.status(200).json({
+      status: 'success',
+      data: result.data,
+      total: result.total,
+      tab: result.tab
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/v1/tenant/bookings/:id
  */
 router.get('/bookings/:id', async (req, res, next) => {
   try {
     const tenantId = req.tenantId;
     const { id } = req.params;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    if (!isUuid) {
+      return res.status(404).json({ status: 'error', message: 'Booking not found' });
+    }
     const booking = await prisma.booking.findFirst({
       where: { id, tenantId },
       include: {

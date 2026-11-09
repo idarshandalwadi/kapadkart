@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { uploadSingleImage, uploadDualProductImages } from '../middleware/upload.middleware.js';
 import { storageService } from '../services/storage/index.js';
 import { verifyToken, isTokenRevoked } from '../utils/token.js';
+import { AUTH_COOKIE_NAME } from '../utils/cookie.js';
 
 const router = Router();
 
@@ -11,7 +12,10 @@ const router = Router();
 async function resolveUploadContext(req, res, next) {
   try {
     const authHeader = req.headers.authorization || '';
-    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    let token = req.cookies?.[AUTH_COOKIE_NAME] || req.cookies?.token || '';
+    if (!token && authHeader) {
+      token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    }
 
     if (token) {
       let payload;
@@ -128,6 +132,38 @@ router.post('/product-images', resolveUploadContext, uploadDualProductImages, as
     res.status(200).json({
       status: 'success',
       data: response
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/v1/upload/remove
+ * Delete one object that belongs to the signed-in shop.
+ * Used when an upload is removed before it is saved on a record.
+ */
+router.post('/remove', resolveUploadContext, async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ status: 'error', message: 'Authentication is required to delete an image' });
+    }
+
+    const key = storageService.extractKey(req.body?.url || req.body?.key || '');
+    if (!key || !/^(products|logos|branding|images|general)\//i.test(key)) {
+      return res.status(400).json({ status: 'error', message: 'That image cannot be deleted' });
+    }
+
+    const ownerKey = String(req.authKey || '').trim();
+    const keyOwner = key.split('/')[1] || '';
+    if (req.user.role !== 'platform_admin' && (!ownerKey || keyOwner !== ownerKey)) {
+      return res.status(403).json({ status: 'error', message: 'You can only delete images uploaded for this shop' });
+    }
+
+    const deleted = await storageService.delete(key);
+    res.status(200).json({
+      status: 'success',
+      data: { deleted: Boolean(deleted), key }
     });
   } catch (error) {
     next(error);

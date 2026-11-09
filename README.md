@@ -114,7 +114,7 @@ This repo does not use `prisma migrate`. Edit `prisma/schema.prisma` and `src/da
 | Cookies | `COOKIE_DOMAIN`, `COOKIE_SAME_SITE` (`lax`, `strict`, or `none`). Leave unset on localhost |
 | Database | `LOCAL_DB_HOST`, `LOCAL_DB_PORT`, `LOCAL_DB_USER`, `LOCAL_DB_PASSWORD`, `LOCAL_DB_NAME`, and `DATABASE_URL` for the Prisma CLI |
 | Files | `STORAGE_PROVIDER` is `local`, `s3`, or `r2`. Cloudflare image bytes use `r2` and bucket `kapadkart-images`. The database stores the public URL |
-| Email | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`. Required for password-reset mail. Empty SMTP settings do not block startup |
+| Email | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`. Required for password-reset mail. Empty SMTP settings do not block startup. `SHOP_APP_URL` is the shop app origin embedded in email buttons. Leave it unset locally so those links stay on `http://localhost:5173`. On the live API set `https://kapadkart.pages.dev` |
 
 Image size limits (`IMAGE_*`) are optional. Defaults live in `src/config/imageConfig.js`.
 

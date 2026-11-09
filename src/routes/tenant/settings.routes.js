@@ -60,11 +60,9 @@ router.put('/settings', async (req, res, next) => {
 
     let updated;
     if (existing) {
-      // Automatically delete previous logo from storage if replaced with a different URL
+      // Delete the previous logo from storage when it is cleared or replaced.
       if (logo_url !== undefined && logo_url !== existing.logoUrl && existing.logoUrl) {
-        storageService.delete(existing.logoUrl).catch((err) => {
-          console.warn(`[Settings] Failed to delete replaced logo: ${existing.logoUrl}`, err.message);
-        });
+        await storageService.deleteRemoved(existing.logoUrl, logo_url);
       }
 
       updated = await prisma.setting.update({

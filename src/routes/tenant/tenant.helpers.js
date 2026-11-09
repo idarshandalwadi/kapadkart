@@ -370,3 +370,127 @@ export function formatRentalHistoryBooking(b) {
   };
 }
 
+/** Rentals that can still appear on the returns schedule. */
+export const OPEN_RETURN_STATUSES = [
+  'booked',
+  'dispatched',
+  'sent',
+  'partially_returned',
+  'confirmed',
+  'delivered'
+];
+
+const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+
+function kolkataDateParts(date) {
+  const shifted = new Date(date.getTime() + IST_OFFSET_MS);
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate()
+  };
+}
+
+function istBound(year, month, day, end) {
+  const utc = Date.UTC(
+    year,
+    month - 1,
+    day,
+    end ? 23 : 0,
+    end ? 59 : 0,
+    end ? 59 : 0,
+    end ? 999 : 0
+  );
+  return new Date(utc - IST_OFFSET_MS);
+}
+
+function addCalendarDays(year, month, day, days) {
+  const utc = new Date(Date.UTC(year, month - 1, day));
+  utc.setUTCDate(utc.getUTCDate() + days);
+  return {
+    year: utc.getUTCFullYear(),
+    month: utc.getUTCMonth() + 1,
+    day: utc.getUTCDate()
+  };
+}
+
+/**
+ * Day window for the dashboard returns schedule, in Asia/Kolkata.
+ * Tabs: overdue, today, tomorrow, upcoming (day after tomorrow through 7 days out).
+ */
+export function returnsScheduleWhere(tab, now = new Date()) {
+  const today = kolkataDateParts(now);
+  const tomorrow = addCalendarDays(today.year, today.month, today.day, 1);
+  const dayAfterTomorrow = addCalendarDays(today.year, today.month, today.day, 2);
+  const plus7 = addCalendarDays(today.year, today.month, today.day, 7);
+  const key = String(tab || 'today').trim().toLowerCase();
+
+  if (key === 'overdue') {
+    return { returnDate: { lt: istBound(today.year, today.month, today.day, false) } };
+  }
+  if (key === 'tomorrow') {
+    return {
+      returnDate: {
+        gte: istBound(tomorrow.year, tomorrow.month, tomorrow.day, false),
+        lte: istBound(tomorrow.year, tomorrow.month, tomorrow.day, true)
+      }
+    };
+  }
+  if (key === 'upcoming') {
+    return {
+      returnDate: {
+        gte: istBound(dayAfterTomorrow.year, dayAfterTomorrow.month, dayAfterTomorrow.day, false),
+        lte: istBound(plus7.year, plus7.month, plus7.day, true)
+      }
+    };
+  }
+  return {
+    returnDate: {
+      gte: istBound(today.year, today.month, today.day, false),
+      lte: istBound(today.year, today.month, today.day, true)
+    }
+  };
+}
+
+export function returnLateness(returnDate, now = new Date()) {
+  const today = kolkataDateParts(now);
+  const due = kolkataDateParts(new Date(returnDate));
+  const todayUtc = Date.UTC(today.year, today.month - 1, today.day);
+  const dueUtc = Date.UTC(due.year, due.month - 1, due.day);
+  const overdueDays = Math.round((todayUtc - dueUtc) / 86400000);
+  return {
+    is_overdue: overdueDays > 0,
+    overdue_days: Math.max(0, overdueDays)
+  };
+}
+
+export async function queryReturnsSchedule(db, tenantId, query = {}, now = new Date()) {
+  const tab = String(query.tab || 'today').trim().toLowerCase();
+  const parsedLimit = parseInt(query.limit, 10);
+  const limit = Math.min(100, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 30));
+  const bookings = await db.booking.findMany({
+    where: {
+      tenantId,
+      status: { in: OPEN_RETURN_STATUSES, mode: 'insensitive' },
+      ...returnsScheduleWhere(tab, now)
+    },
+    include: {
+      bookingItems: {
+        include: {
+          product: true,
+          returns: true
+        }
+      }
+    },
+    orderBy: { returnDate: 'asc' },
+    take: limit
+  });
+
+  const data = bookings.map((booking) => ({
+    ...formatBooking(booking),
+    ...returnLateness(booking.returnDate, now)
+  }));
+
+  return { tab, limit, data, total: data.length };
+}
+

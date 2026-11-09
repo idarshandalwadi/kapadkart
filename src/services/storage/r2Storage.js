@@ -58,14 +58,23 @@ export class R2StorageProvider {
   }
 
   /**
-   * Delete object from Cloudflare R2
+   * Object keys do not include the bucket. Path-style URLs sometimes do.
    */
+  objectKey(key) {
+    let value = String(key || '').trim().replace(/^\/+/, '');
+    if (this.bucket && value.startsWith(`${this.bucket}/`)) {
+      value = value.slice(this.bucket.length + 1);
+    }
+    return value;
+  }
+
   async deleteFile(key) {
-    if (!key) return false;
+    const objectKey = this.objectKey(key);
+    if (!objectKey) return false;
     try {
       const command = new DeleteObjectCommand({
         Bucket: this.bucket,
-        Key: key
+        Key: objectKey
       });
       await this.client.send(command);
       return true;

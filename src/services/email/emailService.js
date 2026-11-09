@@ -1,6 +1,22 @@
 import nodemailer from 'nodemailer';
 import { env } from '../../config/env.js';
 import { prisma } from '../../config/prisma.js';
+import { resolveShopAppUrl, shopEmailLinks } from './appLinks.js';
+
+/**
+ * Shop-app links for an email. Local API requests keep localhost.
+ * Requests that reach the public API use the live shop app.
+ */
+export function emailLinksForRequest(req) {
+  const forwarded = req?.get?.('x-forwarded-host') || '';
+  const host = req?.get?.('host') || '';
+  const base = resolveShopAppUrl({
+    nodeEnv: env.NODE_ENV,
+    configured: env.SHOP_APP_URL,
+    requestHost: [forwarded, host].filter(Boolean).join(',')
+  });
+  return shopEmailLinks(base);
+}
 
 let transporter = null;
 
@@ -159,7 +175,7 @@ export function buildWelcomeShopHtml({
   slug,
   ownerEmail,
   temporaryPassword,
-  loginUrl = 'http://localhost:5173/login',
+  loginUrl = emailLinksForRequest().loginUrl,
   supportEmail = 'support@kapadkart.com'
 }) {
   return `
@@ -223,7 +239,7 @@ export function buildAccountSuspendedHtml({
   customReason = '',
   supportEmail = 'support@kapadkart.com',
   supportPhone = '+91 7227807493',
-  supportUrl = 'http://localhost:5173/contact'
+  supportUrl = emailLinksForRequest().supportUrl
 }) {
   const reasonLabels = {
     'outstanding_payment': 'Outstanding Payment (Pending or Overdue Invoices)',

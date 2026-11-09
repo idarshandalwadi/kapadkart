@@ -439,16 +439,15 @@ router.put('/products/:id', async (req, res, next) => {
       }
     });
 
-    // Automatically remove replaced older images from storage (Local, S3, or R2)
-    if (image !== undefined && image !== existing.image && existing.image) {
-      storageService.delete(existing.image).catch((err) => {
-        console.warn(`[Products] Failed to delete replaced image: ${existing.image}`, err.message);
-      });
-    }
-    if (image2 !== undefined && image2 !== existing.image2 && existing.image2) {
-      storageService.delete(existing.image2).catch((err) => {
-        console.warn(`[Products] Failed to delete replaced image2: ${existing.image2}`, err.message);
-      });
+    // Delete product images that were cleared or replaced, including one entry in a JSON list.
+    if (image !== undefined || image2 !== undefined) {
+      await storageService.deleteRemoved(
+        [existing.image, existing.image2],
+        [
+          image !== undefined ? image : existing.image,
+          image2 !== undefined ? image2 : existing.image2
+        ]
+      );
     }
 
     recordActivity({
