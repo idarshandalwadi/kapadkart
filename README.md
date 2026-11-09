@@ -64,15 +64,14 @@ npm run dev
 
 The API listens on http://localhost:4000.
 
-`db:setup` applies `src/database/schema.sql` and inserts one platform admin:
+`db:setup` applies `src/database/schema.sql` and inserts the platform admin plus one test shop.
 
-| Field | Value |
-|---|---|
-| Email | `admin@kapadkart.com` |
-| Username | `kapadkart` |
-| Password | `Admin123` |
+| Account | Email | Password |
+|---|---|---|
+| Platform admin (`kapadkart`) | `admin@kapadkart.com` | `Admin123` |
+| Shop `khodal-mahakali-shop` | `khodal@kapadkart.com` | `Khodal@123` |
 
-Sign in to the admin panel with the email and password. Replace this password before anyone else can reach the database.
+Sign in to the admin panel with the platform admin. Sign in to the shop app at `/t/khodal-mahakali-shop` with the shop owner. Replace both passwords before anyone else can reach the database.
 
 Check the database from the running server:
 
@@ -92,9 +91,9 @@ curl http://localhost:4000/api/v1/health/db
 | `npm test` | Node.js test runner (`tests/**/*.test.js`) |
 | `npm run lint` | ESLint |
 | `npm run db:migrate` | Apply `src/database/schema.sql` in a transaction |
-| `npm run db:seed` | Insert or update the platform admin |
+| `npm run db:seed` | Insert or update the platform admin and the Khodal test shop |
 | `npm run db:setup` | Migrate, then seed |
-| `npm run db:reset` | Drop schema `app`, recreate it, and seed the admin |
+| `npm run db:reset` | Drop schema `app`, recreate it, and seed the admin and test shop |
 | `npm run db:clean` | Empty every `app` table except `platform_admins` |
 | `npm run r2:create` | Create the `kapadkart-images` R2 bucket |
 | `npm run r2:cors` | Allow browsers to read images from that bucket |

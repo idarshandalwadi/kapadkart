@@ -63,13 +63,22 @@ describe('Database Schema & Seed Verification', () => {
     assert.equal(isValidPassword, true, 'Admin123 password should match the bcrypt hash');
   });
 
-  it('verifies seed contains only platform admin and zero dummy shops', async () => {
-    const adminRes = await query(`SELECT count(*)::int as count FROM app.platform_admins;`);
-    assert.ok(adminRes.rows[0].count >= 1, 'Expected at least 1 platform admin');
+  it('verifies the seeded Khodal test shop and owner password', async () => {
+    const tenantRes = await query(
+      `SELECT id, slug, status FROM app.tenants WHERE slug = $1`,
+      ['khodal-mahakali-shop']
+    );
+    assert.equal(tenantRes.rows.length, 1);
+    assert.equal(tenantRes.rows[0].status, 'active');
 
-    // Tenants table can have 0 tenants or only explicitly created ones
-    const tenantRes = await query(`SELECT count(*)::int as count FROM app.tenants WHERE slug = 'khodal-mahakali-shop';`);
-    assert.ok(tenantRes.rows[0].count <= 1);
+    const userRes = await query(
+      `SELECT email, password_hash, full_name FROM app.users WHERE tenant_id = $1 AND email = $2`,
+      [tenantRes.rows[0].id, 'khodal@kapadkart.com']
+    );
+    assert.equal(userRes.rows.length, 1);
+    assert.equal(userRes.rows[0].full_name, 'mahakali');
+    const passwordMatches = await bcrypt.compare('Khodal@123', userRes.rows[0].password_hash);
+    assert.equal(passwordMatches, true, 'Khodal@123 password should match the bcrypt hash');
   });
 });
 

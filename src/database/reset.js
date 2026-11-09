@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import bcrypt from 'bcryptjs';
 import { getClient, closeDatabasePool, getActiveDatabaseConfig } from '../config/db.js';
+import { seedInitialAccounts } from './seedData.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,21 +26,13 @@ async function runReset() {
     await client.query(schemaSql);
     console.log('[Reset] ✔ Full schema re-created successfully.');
 
-    // 3. Seed ONLY the Platform Administrator (Single Admin Account)
-    console.log('[Reset] Seeding single Platform Administrator account...');
+    // 3. Seed the platform admin and the Khodal test shop
+    console.log('[Reset] Seeding platform admin and Khodal test shop...');
     await client.query('BEGIN');
 
-    const adminPasswordHash = await bcrypt.hash('Admin123', 10);
-    const adminRes = await client.query(
-      `
-      INSERT INTO app.platform_admins (username, email, password_hash, full_name)
-      VALUES ($1, $2, $3, $4)
-      RETURNING id, auth_key, username, email, full_name;
-      `,
-      ['kapadkart', 'admin@kapadkart.com', adminPasswordHash, 'Platform Administrator']
-    );
-    const admin = adminRes.rows[0];
-    console.log(`[Reset] ✔ Platform Admin created: email='${admin.email}', auth_key='${admin.auth_key}' (ID: ${admin.id})`);
+    const { platformAdmin, shop, owner } = await seedInitialAccounts(client);
+    console.log(`[Reset] ✔ Platform Admin created: email='${platformAdmin.email}', auth_key='${platformAdmin.auth_key}' (ID: ${platformAdmin.id})`);
+    console.log(`[Reset] ✔ Test shop created: slug='${shop.slug}', owner='${owner.email}' (ID: ${shop.id})`);
 
     await client.query('COMMIT');
 
@@ -51,7 +43,7 @@ async function runReset() {
     const saleCheck = await client.query('SELECT count(*) as count FROM app.sales;');
 
     console.log(`[Reset] ✔ Verification - Tenants: ${tenantCheck.rows[0].count}, Products: ${prodCheck.rows[0].count}, Bookings: ${bookCheck.rows[0].count}, Sales: ${saleCheck.rows[0].count}`);
-    console.log('[Reset] Database reset completed successfully with only 1 Platform Admin!');
+    console.log('[Reset] Database reset completed with the platform admin and the Khodal test shop.');
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
     console.error('[Reset] Failed to reset database:', error.message);
