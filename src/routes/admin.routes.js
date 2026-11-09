@@ -7,6 +7,7 @@ import { requireAdmin } from '../middleware/authMiddleware.js';
 import {
   sendEmail,
   emailLinksForRequest,
+  checkSmtpConnection,
   buildWelcomeShopHtml,
   buildAccountSuspendedHtml,
   buildAccountUpdatedHtml
@@ -35,13 +36,17 @@ function parseLimitInput(val) {
  */
 const handleHealth = async (req, res, next) => {
   try {
-    const dbHealth = await checkPrismaConnection();
-    const isOk = dbHealth.status === 'connected';
+    const [dbHealth, smtp] = await Promise.all([
+      checkPrismaConnection(),
+      checkSmtpConnection({}, { cache: true })
+    ]);
+    const dbOk = dbHealth.status === 'connected';
+    const smtpOk = smtp.status === 'ok';
 
     res.status(200).json({
       status: 'success',
       data: {
-        status: isOk ? 'operational' : 'degraded',
+        status: dbOk && smtpOk ? 'operational' : 'degraded',
         timestamp: new Date().toISOString(),
         api: {
           status: 'ok',
@@ -49,14 +54,19 @@ const handleHealth = async (req, res, next) => {
           version: '1.0.0'
         },
         database: {
-          status: isOk ? 'ok' : 'error',
+          status: dbOk ? 'ok' : 'error',
           latency_ms: dbHealth.latencyMs || 0,
           source: dbHealth.source,
           error: dbHealth.error || null
         },
         smtp: {
-          status: 'ok',
-          provider: 'Amazon SES / Custom SMTP (active)'
+          status: smtp.status,
+          configured: smtp.configured,
+          connected: smtp.connected,
+          provider: smtp.provider,
+          host: smtp.host,
+          port: smtp.port,
+          error: smtp.error
         }
       }
     });

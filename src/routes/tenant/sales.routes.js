@@ -4,7 +4,8 @@ import { prisma } from "../../config/prisma.js";
 import { recordActivity } from "../../services/activity/activityService.js";
 import {
   formatSale,
-  generateNextTenantBillNo
+  generateNextTenantBillNo,
+  istCreatedAtRange
 } from "./tenant.helpers.js";
 
 const router = Router();
@@ -51,13 +52,8 @@ router.get('/sales', async (req, res, next) => {
       ];
     }
     if (from || to) {
-      where.createdAt = {};
-      if (from) where.createdAt.gte = new Date(from);
-      if (to) {
-        const toDate = new Date(to);
-        toDate.setHours(23, 59, 59, 999);
-        where.createdAt.lte = toDate;
-      }
+      const createdAt = istCreatedAtRange(from, to);
+      if (createdAt) where.createdAt = createdAt;
     }
 
     const sortBy = req.query.sort_by || 'createdAt';

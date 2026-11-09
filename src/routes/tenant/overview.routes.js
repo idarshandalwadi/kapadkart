@@ -1,5 +1,9 @@
 import { Router } from 'express';
 import { prisma } from '../../config/prisma.js';
+import {
+  bookingListViewWhere,
+  istTodayRange
+} from './tenant.helpers.js';
 
 const router = Router();
 
@@ -57,9 +61,18 @@ export const handleTenantOverview = async (req, res, next) => {
     const tenantId = req.tenantId;
 
     const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    const future15Days = new Date(startOfToday.getTime() + 15 * 24 * 60 * 60 * 1000);
+    const today = istTodayRange(now);
+    const pickupWhere = { tenantId, ...bookingListViewWhere('pickup_today', now) };
+    const dueTodayWhere = { tenantId, ...bookingListViewWhere('due_today', now) };
+    const upcomingWhere = { tenantId, ...bookingListViewWhere('upcoming_delivery', now) };
+    const overdueWhere = { tenantId, ...bookingListViewWhere('overdue', now) };
+    const createdTodayWhere = { tenantId, ...bookingListViewWhere('created_today', now) };
+    const outstandingWhere = { tenantId, ...bookingListViewWhere('outstanding', now) };
+    const inHandWhere = {
+      tenantId,
+      status: { notIn: ['Discontinued', 'discontinued'] },
+      totalQuantity: { gt: 0 }
+    };
 
     const [
       tenant,
@@ -92,11 +105,13 @@ export const handleTenantOverview = async (req, res, next) => {
       // Products total
       prisma.product.count({ where: { tenantId } }),
       // Products available
-      prisma.product.count({ where: { tenantId, status: 'Available' } }),
+      prisma.product.count({ where: inHandWhere }),
       // Bookings total
       prisma.booking.count({ where: { tenantId } }),
-      // Bookings active
-      prisma.booking.count({ where: { tenantId, status: { in: ['confirmed', 'delivered'] } } }),
+      // Bookings currently out with the customer
+      prisma.booking.count({
+        where: { tenantId, status: { in: ['sent', 'partially_returned'] } }
+      }),
       // Sales stats
       prisma.sale.aggregate({
         where: { tenantId, status: { not: 'cancelled' } },
@@ -105,38 +120,10 @@ export const handleTenantOverview = async (req, res, next) => {
       }),
       // Tenant settings for currency & store info
       prisma.setting.findFirst({ where: { tenantId } }),
-      // KPI 1: Pickups/Orders today
-      prisma.booking.count({
-        where: {
-          tenantId,
-          status: { notIn: ['cancelled', 'completed'] },
-          pickupDate: { gte: startOfToday, lte: endOfToday }
-        }
-      }),
-      // KPI 2: Returns expected today
-      prisma.booking.count({
-        where: {
-          tenantId,
-          status: { in: ['confirmed', 'delivered'] },
-          returnDate: { gte: startOfToday, lte: endOfToday }
-        }
-      }),
-      // KPI 3: Upcoming deliveries (next 15 days)
-      prisma.booking.count({
-        where: {
-          tenantId,
-          status: { notIn: ['cancelled', 'completed'] },
-          pickupDate: { gt: endOfToday, lte: future15Days }
-        }
-      }),
-      // KPI 4: Overdue rentals (return date in past, not yet returned)
-      prisma.booking.count({
-        where: {
-          tenantId,
-          status: { in: ['confirmed', 'delivered'] },
-          returnDate: { lt: startOfToday }
-        }
-      }),
+      prisma.booking.count({ where: pickupWhere }),
+      prisma.booking.count({ where: dueTodayWhere }),
+      prisma.booking.count({ where: upcomingWhere }),
+      prisma.booking.count({ where: overdueWhere }),
       // Recent active bookings preview
       prisma.booking.findMany({
         where: { tenantId },
@@ -153,31 +140,21 @@ export const handleTenantOverview = async (req, res, next) => {
           returnDate: true
         }
       }),
-      // KPI 5: Today's direct sales revenue & count
       prisma.sale.aggregate({
         where: {
           tenantId,
-          status: { notIn: ['cancelled'] },
-          createdAt: { gte: startOfToday, lte: endOfToday }
+          status: { notIn: ['cancelled', 'CANCELLED'] },
+          createdAt: { gte: today.gte, lte: today.lte }
         },
         _count: true,
         _sum: { saleTotal: true }
       }),
-      // KPI 6 & 7: Today's rental cash inflow (paid bookings)
       prisma.booking.aggregate({
-        where: {
-          tenantId,
-          status: { notIn: ['cancelled'] },
-          createdAt: { gte: startOfToday, lte: endOfToday }
-        },
+        where: createdTodayWhere,
         _sum: { paidAmount: true }
       }),
-      // KPI 8: Total outstanding due (Baki)
       prisma.booking.aggregate({
-        where: {
-          tenantId,
-          status: { notIn: ['cancelled'] }
-        },
+        where: outstandingWhere,
         _sum: { dueAmount: true }
       })
     ]);

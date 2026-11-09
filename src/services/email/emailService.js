@@ -20,6 +20,104 @@ export function emailLinksForRequest(req) {
 
 let transporter = null;
 
+const SMTP_VERIFY_TIMEOUT_MS = 10000;
+const SMTP_HEALTH_CACHE_MS = 20000;
+let cachedSmtpCheck = null;
+let cachedSmtpCheckedAt = 0;
+
+export function smtpProviderLabel(host) {
+  const value = String(host || '').toLowerCase();
+  if (!value) return 'SMTP';
+  if (value.includes('gmail') || value.includes('googlemail') || value.includes('google.com')) return 'Gmail';
+  if (value.includes('amazonaws.com') || value.includes('ses.')) return 'Amazon SES';
+  return 'Custom SMTP';
+}
+
+function resolveSmtpSecure(value, port) {
+  if (Number(port) === 465) return true;
+  return value === true || value === 'true';
+}
+
+/**
+ * Opens an SMTP session and checks the configured credentials.
+ * Does not send a message. A missing password is reported as not configured.
+ */
+export async function checkSmtpConnection(overrides = {}, { cache = false } = {}) {
+  const host = overrides.host || env.SMTP_HOST;
+  const port = Number(overrides.port || env.SMTP_PORT) || 587;
+  const user = overrides.user !== undefined ? overrides.user : env.SMTP_USER;
+  const pass = overrides.pass !== undefined ? overrides.pass : env.SMTP_PASS;
+  const secure = resolveSmtpSecure(
+    overrides.secure !== undefined ? overrides.secure : env.SMTP_SECURE,
+    port
+  );
+  const provider = smtpProviderLabel(host);
+
+  if (!user || !pass) {
+    return {
+      status: 'degraded',
+      connected: false,
+      configured: false,
+      provider: null,
+      host: host || null,
+      port,
+      secure,
+      error: 'SMTP credentials are not configured'
+    };
+  }
+
+  const cacheable = cache && overrides.user === undefined && overrides.pass === undefined && overrides.host === undefined;
+  if (cacheable && cachedSmtpCheck && Date.now() - cachedSmtpCheckedAt < SMTP_HEALTH_CACHE_MS) {
+    return cachedSmtpCheck;
+  }
+
+  const probe = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+    connectionTimeout: SMTP_VERIFY_TIMEOUT_MS,
+    greetingTimeout: SMTP_VERIFY_TIMEOUT_MS,
+    socketTimeout: SMTP_VERIFY_TIMEOUT_MS
+  });
+
+  try {
+    await probe.verify();
+    const result = {
+      status: 'ok',
+      connected: true,
+      configured: true,
+      provider,
+      host,
+      port,
+      secure,
+      error: null
+    };
+    if (cacheable) {
+      cachedSmtpCheck = result;
+      cachedSmtpCheckedAt = Date.now();
+    }
+    return result;
+  } catch (err) {
+    return {
+      status: 'error',
+      connected: false,
+      configured: true,
+      provider,
+      host,
+      port,
+      secure,
+      error: err.message || 'SMTP verification failed'
+    };
+  } finally {
+    try {
+      probe.close();
+    } catch {
+      // The probe socket may already be closed.
+    }
+  }
+}
+
 function getTransporter() {
   if (transporter) return transporter;
 
@@ -27,11 +125,14 @@ function getTransporter() {
     transporter = nodemailer.createTransport({
       host: env.SMTP_HOST,
       port: env.SMTP_PORT,
-      secure: env.SMTP_SECURE,
+      secure: resolveSmtpSecure(env.SMTP_SECURE, env.SMTP_PORT),
       auth: {
         user: env.SMTP_USER,
         pass: env.SMTP_PASS
-      }
+      },
+      connectionTimeout: SMTP_VERIFY_TIMEOUT_MS,
+      greetingTimeout: SMTP_VERIFY_TIMEOUT_MS,
+      socketTimeout: SMTP_VERIFY_TIMEOUT_MS
     });
   }
   return transporter;

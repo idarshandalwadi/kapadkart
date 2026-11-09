@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import nodemailer from 'nodemailer';
 import { prisma } from '../config/prisma.js';
 import { env } from '../config/env.js';
 import { requireAdmin } from '../middleware/authMiddleware.js';
+import { checkSmtpConnection } from '../services/email/emailService.js';
 
 const router = Router();
 
@@ -196,39 +196,58 @@ router.get('/provider', (req, res) => {
  * Validates SMTP transport credentials
  */
 router.post('/test-connection', async (req, res) => {
-  const customConfig = req.body?.smtpConfig;
-  const host = customConfig?.host || env.SMTP_HOST;
-  const port = customConfig?.port || env.SMTP_PORT;
-  const secure = customConfig?.secure ?? env.SMTP_SECURE;
-  const user = customConfig?.user || env.SMTP_USER;
-  const pass = customConfig?.pass || env.SMTP_PASS;
+  const customConfig = req.body?.smtpConfig || {};
+  const hasCustom = Boolean(req.body?.smtpConfig);
+  const result = await checkSmtpConnection({
+    host: customConfig.host,
+    port: customConfig.port,
+    secure: hasCustom ? customConfig.secure : undefined,
+    user: hasCustom ? customConfig.user : undefined,
+    pass: hasCustom ? customConfig.pass : undefined
+  });
 
-  if (!user || !pass) {
+  if (!result.configured) {
     return res.status(400).json({
       status: 'error',
-      message: 'SMTP credentials (user & password) are not configured. Please supply them in .env or settings.'
+      message: 'SMTP credentials (user & password) are not configured. Please supply them in .env or settings.',
+      data: {
+        connected: false,
+        configured: false,
+        provider: result.provider,
+        host: result.host,
+        port: result.port,
+        error: result.error
+      }
     });
   }
 
-  try {
-    const testTransporter = nodemailer.createTransport({
-      host,
-      port,
-      secure,
-      auth: { user, pass }
-    });
-
-    await testTransporter.verify();
-    return res.status(200).json({
-      status: 'success',
-      message: `SMTP connection to ${host}:${port} verified successfully!`
-    });
-  } catch (err) {
-    return res.status(500).json({
+  if (!result.connected) {
+    return res.status(502).json({
       status: 'error',
-      message: `SMTP verification failed: ${err.message}`
+      message: `SMTP verification failed: ${result.error}`,
+      data: {
+        connected: false,
+        configured: true,
+        provider: result.provider,
+        host: result.host,
+        port: result.port,
+        error: result.error
+      }
     });
   }
+
+  return res.status(200).json({
+    status: 'success',
+    message: `SMTP connection to ${result.host}:${result.port} verified successfully!`,
+    data: {
+      connected: true,
+      configured: true,
+      provider: result.provider,
+      host: result.host,
+      port: result.port,
+      error: null
+    }
+  });
 });
 
 export default router;

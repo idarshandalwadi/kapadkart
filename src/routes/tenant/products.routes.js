@@ -60,6 +60,9 @@ router.get('/products', async (req, res, next) => {
       where.totalQuantity = { gt: 0, lte: lowStockThreshold };
     } else if (stock === 'in_stock') {
       where.totalQuantity = { gt: lowStockThreshold };
+    } else if (stock === 'available') {
+      where.status = { notIn: ['Discontinued', 'discontinued'] };
+      where.totalQuantity = { gt: 0 };
     } else if (stock === 'alerts') {
       where.totalQuantity = { lte: lowStockThreshold };
     }

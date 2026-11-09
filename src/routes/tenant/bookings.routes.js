@@ -7,7 +7,9 @@ import {
   formatProduct,
   formatBooking,
   generateNextTenantBillNo,
-  queryReturnsSchedule
+  queryReturnsSchedule,
+  bookingListViewWhere,
+  istCreatedAtRange
 } from "./tenant.helpers.js";
 
 const router = Router();
@@ -52,8 +54,13 @@ router.get('/bookings', async (req, res, next) => {
     } else if (tab === 'bookings') {
       // All advance reservations
       where.status = { equals: 'booked', mode: 'insensitive' };
-    } else if (status && status !== 'all') {
-      where.status = { equals: status, mode: 'insensitive' };
+    } else {
+      const viewWhere = bookingListViewWhere(status);
+      if (viewWhere) {
+        Object.assign(where, viewWhere);
+      } else if (status && status !== 'all') {
+        where.status = { equals: status, mode: 'insensitive' };
+      }
     }
 
     if (search) {
@@ -67,14 +74,9 @@ router.get('/bookings', async (req, res, next) => {
       ];
     }
 
-    if (from || to) {
-      where.createdAt = {};
-      if (from) where.createdAt.gte = new Date(from);
-      if (to) {
-        const toDate = new Date(to);
-        toDate.setHours(23, 59, 59, 999);
-        where.createdAt.lte = toDate;
-      }
+    if ((from || to) && status !== 'created_today') {
+      const createdAt = istCreatedAtRange(from, to);
+      if (createdAt) where.createdAt = createdAt;
     }
 
     // Determine sorting based on tab

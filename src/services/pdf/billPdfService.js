@@ -550,10 +550,10 @@ export async function generateBillPdfBuffer({ record, type = 'sale', settings = 
     ? Math.max(0, rawDue)
     : Math.max(0, baseRentalTotal - paid);
 
-  y += 7;
+  y += 28;
   // Full-width divider line above Payment Summary
   doc.strokeColor('#CCCCCC').lineWidth(1).moveTo(margin, y).lineTo(margin + contentWidth, y).stroke();
-  y += 6;
+  y += 14;
 
   const panelWidth = 175;
   const panelX = margin + contentWidth - panelWidth;

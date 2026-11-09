@@ -452,6 +452,96 @@ export function returnsScheduleWhere(tab, now = new Date()) {
   };
 }
 
+const CLOSED_BOOKING_STATUSES = ['cancelled', 'returned', 'completed'];
+
+/**
+ * Inclusive Asia/Kolkata day for a YYYY-MM-DD value.
+ * Date-only filters from the browser are shop-local days, not UTC midnights.
+ */
+export function istDateRange(isoDate) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(isoDate || '').trim());
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return {
+    gte: istBound(year, month, day, false),
+    lte: istBound(year, month, day, true)
+  };
+}
+
+export function istTodayRange(now = new Date()) {
+  const today = kolkataDateParts(now);
+  return {
+    ...today,
+    gte: istBound(today.year, today.month, today.day, false),
+    lte: istBound(today.year, today.month, today.day, true)
+  };
+}
+
+/** createdAt window for date-only from/to query params. */
+export function istCreatedAtRange(from, to) {
+  const range = {};
+  const start = istDateRange(from);
+  const end = istDateRange(to);
+  if (start) range.gte = start.gte;
+  if (end) range.lte = end.lte;
+  return Object.keys(range).length ? range : null;
+}
+
+/**
+ * Dashboard tiles and the booking list share these views.
+ * Returns null when `view` is a normal booking status.
+ */
+export function bookingListViewWhere(view, now = new Date()) {
+  const key = String(view || '').trim().toLowerCase();
+  const today = istTodayRange(now);
+  const tomorrow = addCalendarDays(today.year, today.month, today.day, 1);
+  const plus15 = addCalendarDays(today.year, today.month, today.day, 15);
+
+  if (key === 'pickup_today') {
+    return {
+      status: { notIn: CLOSED_BOOKING_STATUSES },
+      pickupDate: { gte: today.gte, lte: today.lte }
+    };
+  }
+  if (key === 'due_today') {
+    return {
+      status: { in: OPEN_RETURN_STATUSES, mode: 'insensitive' },
+      returnDate: { gte: today.gte, lte: today.lte }
+    };
+  }
+  if (key === 'upcoming_delivery') {
+    return {
+      status: { notIn: CLOSED_BOOKING_STATUSES },
+      pickupDate: {
+        gte: istBound(tomorrow.year, tomorrow.month, tomorrow.day, false),
+        lte: istBound(plus15.year, plus15.month, plus15.day, true)
+      }
+    };
+  }
+  if (key === 'overdue') {
+    return {
+      status: { in: OPEN_RETURN_STATUSES, mode: 'insensitive' },
+      returnDate: { lt: today.gte }
+    };
+  }
+  if (key === 'created_today') {
+    return {
+      status: { notIn: ['cancelled'] },
+      createdAt: { gte: today.gte, lte: today.lte }
+    };
+  }
+  if (key === 'outstanding') {
+    return {
+      status: { notIn: ['cancelled'] },
+      dueAmount: { gt: 0 }
+    };
+  }
+  return null;
+}
+
 export function returnLateness(returnDate, now = new Date()) {
   const today = kolkataDateParts(now);
   const due = kolkataDateParts(new Date(returnDate));
